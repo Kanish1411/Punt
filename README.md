@@ -1,6 +1,6 @@
 Install The requirements with:
 
-pip install -r req.txt
+pip install -r requirements.txt
 
 after that run the app by 
 
