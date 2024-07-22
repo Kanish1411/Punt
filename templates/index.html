@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Recorder</title>
+</head>
+<body>
+    <h1>Audio Recorder</h1>
+    <h2>Instructions: The audio starts recording after you press the button. It will record a maximum of 20 seconds, and any silence in the audio exceeding 3 seconds will be considered as termination.</h2>
+
+    <h2>Text Area Demo</h2>
+    <form id="audioForm">
+        <textarea id="audioTextArea" name="content" rows="10" cols="50">{{ text }}</textarea><br><br>
+        <button type="button" id="start-recording">Start Recording</button>
+    </form>
+    <textarea id="audioTextAreaAI" name="content" rows="10" cols="50"></textarea><br><br>
+    <button type="button" id="configLLM">Use LLM to config the output</button>
+
+    <script>
+        document.getElementById('start-recording').addEventListener('click', () => {
+            fetch('/record_audio', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('audioTextArea').value = data.audio_text;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+
+        document.getElementById('configLLM').addEventListener('click', () => {
+            const prompt = document.getElementById('audioTextArea').value;
+            fetch('/config_output', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ prompt: prompt })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('audioTextAreaAI').value = data.text;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+    </script>
+</body>
+</html>
