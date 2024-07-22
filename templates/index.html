@@ -7,30 +7,77 @@
 </head>
 <body>
     <h1>Audio Recorder</h1>
-    <h2>Instructions: The audio starts recording after you press the button. It will record a maximum of 20 seconds, and any silence in the audio exceeding 3 seconds will be considered as termination.</h2>
+    <h2>Instructions: The audio starts recording after you press the Start Recording button. It will record a maximum of 20 seconds, and any silence in the audio exceeding 3 seconds will be considered as termination.</h2>
 
     <h2>Text Area Demo</h2>
     <form id="audioForm">
-        <textarea id="audioText" name="content" rows="10" cols="50">{{ text }}</textarea><br><br>
+        <textarea id="audioText" name="content" rows="10" cols="50"></textarea><br><br>
         <button type="button" id="start-recording">Start Recording</button>
+        <button type="button" id="stop-recording" style="display:none;">Stop Recording</button> <!-- Hidden initially -->
     </form>
     <textarea id="audioTextAreaAI" name="content" rows="10" cols="50"></textarea><br><br>
     <button type="button" id="configLLM">Use LLM to config the output</button>
     <br><br><br>
     <button type="button" id="ttschange">Convert to Audio</button><br>
+
     <script>
+        let mediaRecorder;
+        let socket;
+
         document.getElementById('start-recording').addEventListener('click', () => {
-            fetch('/record_audio', {
-                method: 'POST'
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('audioText').value = data.audio_text;
-            })
-            .catch(error => {
-                console.error('Error:', error);
+            navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+                if (!MediaRecorder.isTypeSupported('audio/webm')) {
+                    return alert('Browser not supported');
+                }
+
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                socket = new WebSocket('wss://api.deepgram.com/v1/listen', [
+                    'token',
+                    'fe9cb1acb73d32204b6b8d3ed2e07175fd2e765f',
+                ]);
+
+                socket.onopen = () => {
+                    mediaRecorder.addEventListener('dataavailable', async (event) => {
+                        if (event.data.size > 0 && socket.readyState == 1) {
+                            socket.send(event.data);
+                        }
+                    });
+                    mediaRecorder.start(1000);
+                };
+
+                socket.onmessage = (message) => {
+                    const received = JSON.parse(message.data);
+                    const transcript = received.channel.alternatives[0].transcript;
+                    if (transcript && received.is_final) {
+                        document.getElementById('audioText').value += transcript + ' '; // Append transcript to textarea
+                    }
+                };
+
+                socket.onclose = () => {
+                    console.log({ event: 'onclose' });
+                };
+
+                socket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                };
+                document.getElementById('start-recording').style.display = 'none';
+                document.getElementById('stop-recording').style.display = 'inline-block';
+            }).catch(error => {
+                console.error('Error acquiring media devices:', error);
             });
         });
+        document.getElementById('stop-recording').addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                socket.close();
+                console.log('Recording stopped.');
+                
+                // Hide stop recording button and show start recording button
+                document.getElementById('stop-recording').style.display = 'none';
+                document.getElementById('start-recording').style.display = 'inline-block';
+            }
+        });
+
         document.getElementById('configLLM').addEventListener('click', () => {
             const prompt = document.getElementById('audioText').value;
             fetch('/config_output', {
@@ -48,27 +95,28 @@
                 console.error('Error:', error);
             });
         });
+
         const textArea = document.getElementById('audioTextAreaAI');
         const button = document.getElementById('ttschange');
 
         button.addEventListener('click', async () => {
-        const prompt = textArea.value;
-        try {
-            const response = await fetch('/text_to_speech', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt })
-            });
+            const prompt = textArea.value;
+            try {
+                const response = await fetch('/text_to_speech', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
 
-            const blob = await response.blob();
-            const audio = new Audio();
-            audio.src = URL.createObjectURL(blob);
-            audio.play();
+                const blob = await response.blob();
+                const audio = new Audio();
+                audio.src = URL.createObjectURL(blob);
+                audio.play();
 
-            audio.onended = () => URL.revokeObjectURL(audio.src); // Cleanup
-        } catch (error) {
-            console.error('Error:', error);
-        }
+                audio.onended = () => URL.revokeObjectURL(audio.src); // Cleanup
+            } catch (error) {
+                console.error('Error:', error);
+            }
         });
     </script>
 </body>
