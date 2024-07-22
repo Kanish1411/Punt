@@ -1,4 +1,5 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request,make_response
+from io import BytesIO
 import pyaudio
 import numpy as np
 import wave
@@ -59,7 +60,6 @@ async def speechtosudio():
     frames = []
     start_time = time.time()
     silence_start_time = None
-
     while True:
         data = stream.read(CHUNK)
         frames.append(data)
@@ -78,11 +78,9 @@ async def speechtosudio():
         if time.time() - start_time > MAX_RECORDING_TIME:
             print("Maximum recording time reached. Stopping recording.")
             break
-
     stream.stop_stream()
     stream.close()
     p.terminate()
-
     output_file = "audio/output.wav"
     wf = wave.open(output_file, 'wb')
     wf.setnchannels(CHANNELS)
@@ -129,19 +127,20 @@ async def LLm(prompt):
 
 @app.route('/text_to_speech', methods=['POST'])
 def text_to_speech():
-    text = request.json.get('text', '')
-    if not text:
-        return jsonify({'error': 'No text provided'})
+  a = request.json.get('prompt', '')
+  if not a:
+    return jsonify({'error': 'No text provided'})
 
-    # Initialize gTTS
-    tts = gTTS(text=text, lang='en')
+  # Generate audio data
+  buffer = BytesIO()
+  tts = gTTS(text=a, lang='en')
+  tts.write_to_fp(buffer)
 
-    # Save audio to a file
-    audio_file = os.path.join("audio", 'output.mp3')
-    tts.save(audio_file)
-
-    # Return the path to the generated audio file
-    return send_file(audio_file, as_attachment=True, attachment_filename='output.mp3')
+  # Set response headers
+  response = make_response(buffer.getvalue())
+  response.headers['Content-Type'] = 'audio/mpeg'
+  response.headers['Content-Disposition'] = 'attachment; filename=output.mp3'
+  return response
 
 async def main():
     await speechtosudio()
@@ -160,9 +159,9 @@ def record_audio():
 @app.route('/config_output', methods=['POST'])
 def config_output():
     prompt = request.json.get('prompt')  # Get prompt from request data
-    print(prompt)
     var = asyncio.run(LLm(prompt))
-    print(var)
     if var !="error":
         return jsonify({'text': var})
 
+if __name__ == "__main__":
+    app.run(debug=True)

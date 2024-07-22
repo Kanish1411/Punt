@@ -11,12 +11,13 @@
 
     <h2>Text Area Demo</h2>
     <form id="audioForm">
-        <textarea id="audioTextArea" name="content" rows="10" cols="50">{{ text }}</textarea><br><br>
+        <textarea id="audioText" name="content" rows="10" cols="50">{{ text }}</textarea><br><br>
         <button type="button" id="start-recording">Start Recording</button>
     </form>
     <textarea id="audioTextAreaAI" name="content" rows="10" cols="50"></textarea><br><br>
     <button type="button" id="configLLM">Use LLM to config the output</button>
-    <button type="button">Convert to Audio</button>
+    <br><br><br>
+    <button type="button" id="ttschange">Convert to Audio</button><br>
     <script>
         document.getElementById('start-recording').addEventListener('click', () => {
             fetch('/record_audio', {
@@ -24,15 +25,14 @@
             })
             .then(response => response.json())
             .then(data => {
-                document.getElementById('audioTextArea').value = data.audio_text;
+                document.getElementById('audioText').value = data.audio_text;
             })
             .catch(error => {
                 console.error('Error:', error);
             });
         });
-
         document.getElementById('configLLM').addEventListener('click', () => {
-            const prompt = document.getElementById('audioTextArea').value;
+            const prompt = document.getElementById('audioText').value;
             fetch('/config_output', {
                 method: 'POST',
                 headers: {
@@ -47,6 +47,28 @@
             .catch(error => {
                 console.error('Error:', error);
             });
+        });
+        const textArea = document.getElementById('audioTextAreaAI');
+        const button = document.getElementById('ttschange');
+
+        button.addEventListener('click', async () => {
+        const prompt = textArea.value;
+        try {
+            const response = await fetch('/text_to_speech', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+            });
+
+            const blob = await response.blob();
+            const audio = new Audio();
+            audio.src = URL.createObjectURL(blob);
+            audio.play();
+
+            audio.onended = () => URL.revokeObjectURL(audio.src); // Cleanup
+        } catch (error) {
+            console.error('Error:', error);
+        }
         });
     </script>
 </body>
