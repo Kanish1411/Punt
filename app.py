@@ -9,6 +9,7 @@ from deepgram import Deepgram
 from openai import OpenAI
 import time
 import google.generativeai as genai
+from gtts import gTTS
 
 
 app = Flask(__name__)
@@ -101,15 +102,10 @@ async def Audiototext():
             }
             try:
                 res = await dg.transcription.prerecorded(src, options)
-                output_path = f"output/{audio_file[:-4]}.json"
-                with open(output_path, "w") as output_file:
-                    json.dump(res, output_file, indent=4)
+                return res["results"]["channels"][0]["alternatives"][0]["transcript"] 
             except Exception as e:
                 print(f"Error processing {audio_file}: {e}")
-
-    with open('output/output.json', 'r') as f:
-        data = json.load(f)
-        return data["results"]["channels"][0]["alternatives"][0]["transcript"]
+        
 
 async def LLm(prompt):
     # resp = client.chat.completions.create(
@@ -131,6 +127,21 @@ async def LLm(prompt):
         app.logger.error(f"Error: {e}")
         return "error"
 
+@app.route('/text_to_speech', methods=['POST'])
+def text_to_speech():
+    text = request.json.get('text', '')
+    if not text:
+        return jsonify({'error': 'No text provided'})
+
+    # Initialize gTTS
+    tts = gTTS(text=text, lang='en')
+
+    # Save audio to a file
+    audio_file = os.path.join("audio", 'output.mp3')
+    tts.save(audio_file)
+
+    # Return the path to the generated audio file
+    return send_file(audio_file, as_attachment=True, attachment_filename='output.mp3')
 
 async def main():
     await speechtosudio()
