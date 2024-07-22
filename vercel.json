@@ -6,5 +6,5 @@
     "routes":[{
         "src": "/(.*)","dest":"/app.py"
     }],
-"rewrites":  [{  "source":  "/(.*)",  "destination":  "/app"  }]
+"rewrites":  [{  "source":  "/(.*)",  "destination":  "/"  }]
 }
