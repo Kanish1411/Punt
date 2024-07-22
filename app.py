@@ -166,5 +166,3 @@ def config_output():
     if var !="error":
         return jsonify({'text': var})
 
-if __name__ == '__main__':
-    app.run(debug=True)
