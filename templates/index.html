@@ -16,7 +16,7 @@
     </form>
     <textarea id="audioTextAreaAI" name="content" rows="10" cols="50"></textarea><br><br>
     <button type="button" id="configLLM">Use LLM to config the output</button>
-
+    <button type="button">Convert to Audio</button>
     <script>
         document.getElementById('start-recording').addEventListener('click', () => {
             fetch('/record_audio', {
